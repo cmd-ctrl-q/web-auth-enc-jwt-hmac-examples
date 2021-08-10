@@ -85,7 +85,11 @@ func main() {
 
 	//
 	wtr := &bytes.Buffer{}
-	encWriter, err := encryptWriter(wtr, bs)
+	_, err = encryptWriter(wtr, bs)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func encryptWriter(w io.Writer, key []byte) (io.Writer, error) {
