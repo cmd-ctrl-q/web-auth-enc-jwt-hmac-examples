@@ -1,5 +1,8 @@
-// authenticating with HMAC
-// HMAC values in a cookie
+/*
+
+The more data you have in your custom claims, the less responsiveness
+it will be
+*/
 package main
 
 import (
@@ -11,44 +14,43 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-const (
-	key = "secret"
-)
-
-// ensure cookie is not tampered with
-func getJWT(msg string) (string, error) {
-	type myClaims struct {
-		Email string
-		jwt.StandardClaims
-	}
-
-	// create a new claim
-	claims := myClaims{
-		StandardClaims: jwt.StandardClaims{
-			// expires in 5 minutes from now
-			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
-		},
-		Email: msg,
-	}
-
-	// create a token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &claims)
-
-	// sign the token
-	ss, err := token.SignedString(key)
-	if err != nil {
-		return "", fmt.Errorf("error getting signed string from token")
-	}
-
-	return ss, nil
-}
-
 func main() {
 
 	http.HandleFunc("/", home)
 	http.HandleFunc("/submit", submit)
 
 	http.ListenAndServe(":8088", nil)
+}
+
+const key = "secret"
+
+type myClaims struct {
+	Email string
+	jwt.StandardClaims
+}
+
+// ensure cookie is not tampered with
+func getJWT(msg string) (string, error) {
+
+	// create a new claim
+	claims := myClaims{
+		Email: msg,
+		StandardClaims: jwt.StandardClaims{
+			// expires in 5 minutes from now
+			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
+		},
+	}
+
+	// create token from newly created claims
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &claims)
+
+	// sign the token
+	ss, err := token.SignedString([]byte(key))
+	if err != nil {
+		return "", fmt.Errorf("error getting signed string from token")
+	}
+
+	return ss, nil
 }
 
 func submit(w http.ResponseWriter, r *http.Request) {
@@ -68,13 +70,12 @@ func submit(w http.ResponseWriter, r *http.Request) {
 	ss, err := getJWT(email)
 	if err != nil {
 		http.Error(w, "unable to get jwt", http.StatusInternalServerError)
+		return
 	}
 
-	// save email in cookie
-	// "hash / message digest / digest / hash value" | "data being stored"
+	// save token string (jwt) in cookie
 	c := http.Cookie{
-		Name: "session",
-		// Value: code + "|" + email,
+		Name:  "session",
 		Value: ss,
 	}
 
@@ -94,11 +95,38 @@ func home(w http.ResponseWriter, r *http.Request) {
 		c = &http.Cookie{}
 	}
 
-	isEqual := true
+	ss := c.Value
+
+	// unpack the jwt and verify it by giving it your key
+	// parse jwt from client to validate/verify the token
+	// the func(...) is the callback, it parses the claims
+	// and checks the header but hasn't yet verified the signature.
+	// until it returns []byte(key)
+	token, err := jwt.ParseWithClaims(ss, &myClaims{}, func(tokenBeforeVerification *jwt.Token) (interface{}, error) {
+		// check that the algorithms match
+		if tokenBeforeVerification.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, fmt.Errorf("someone tried to hack, change signing method")
+		}
+		return []byte(key), nil
+	})
+
+	// check if token is valid, and there was no error paring token string
+	// Notice: check error first else you get a dereference error.
+	// Occured because the token was a nil value, but you were trying
+	// to get a field from the nil token which threw error.
+	// Therefore, you cannot dereference nil to get the value of Valid
+	isEqual := err == nil && token.Valid
 
 	message := "Not logged in"
 	if isEqual {
-		message = "Logged in"
+		message = "Logged in!"
+		// assert your claims are your custom claims 'myClaims'
+		// theoretically, its not necessary to assert it is your custom type
+		// because you know it is.
+		claims := token.Claims.(*myClaims)
+		fmt.Println("Email:", claims.Email)
+		fmt.Println("Expires at (Unix):", claims.ExpiresAt)
+		fmt.Println("Expires at (Date):", time.Unix(claims.ExpiresAt, 0))
 	}
 
 	html := `
