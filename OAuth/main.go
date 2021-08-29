@@ -46,6 +46,7 @@ var githubOauthConfig = &oauth2.Config{
 func main() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/oauth/github", startGithubOauth)
+	http.HandleFunc("/oauth/recieve", completeGithubOauth)
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -71,4 +72,27 @@ func index(w http.ResponseWriter, r *http.Request) {
 func startGithubOauth(w http.ResponseWriter, r *http.Request) {
 	redirectURL := githubOauthConfig.AuthCodeURL("0000")
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+func completeGithubOauth(w http.ResponseWriter, r *http.Request) {
+	// get params
+	code := r.FormValue("code")
+	state := r.FormValue("state")
+
+	if state != "0000" {
+		http.Error(w, "state is incorrect", http.StatusBadRequest)
+		return
+	}
+
+	token, err := githubOauthConfig.Exchange(r.Context(), code)
+	if err != nil {
+		http.Error(w, "Couldn't login", http.StatusInternalServerError)
+		return
+	}
+
+	// get token source
+	ts := githubOauthConfig.TokenSource(r.Context(), token)
+
+	// get http client, can now make calls to github on behalf of user
+	client := oauth2.NewClient(r.Context(), ts)
 }
