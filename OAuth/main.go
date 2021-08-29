@@ -31,12 +31,21 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
-// client id: 955acae12db1c7b77f2c
-// secret: fd4ad5276557697e8bd57f39d3fe0cb7346d9bea
+var githubOauthConfig = &oauth2.Config{
+	ClientID:     os.Getenv("OAUTH_CLIENT_ID"),
+	ClientSecret: os.Getenv("OAUTH_CLIENT_SECRET"),
+	Endpoint:     github.Endpoint,
+}
 
 func main() {
+	http.HandleFunc("/", index)
+	http.HandleFunc("/oauth/github", startGithubOauth)
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -57,4 +66,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 	</body>
 	</html>
 	`)
+}
+
+func startGithubOauth(w http.ResponseWriter, r *http.Request) {
+	redirectURL := githubOauthConfig.AuthCodeURL("0000")
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
