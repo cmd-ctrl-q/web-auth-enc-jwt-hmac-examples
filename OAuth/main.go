@@ -30,8 +30,11 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -44,9 +47,14 @@ var githubOauthConfig = &oauth2.Config{
 }
 
 func main() {
+	// check environment variables
+	if githubOauthConfig.ClientID == "" {
+		log.Fatal("environment variables were not set")
+	}
+
 	http.HandleFunc("/", index)
-	http.HandleFunc("/oauth/github", startGithubOauth)
-	http.HandleFunc("/oauth/recieve", completeGithubOauth)
+	http.HandleFunc("/oauth2/github", startGithubOauth)
+	http.HandleFunc("/oauth2/receive", completeGithubOauth)
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -61,7 +69,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		<title>Document</title>
 	</head>
 	<body>
-		<form action="/oauth/github" method="post">
+		<form action="/oauth2/github" method="post">
 			<input type="submit", value="Login with Github">
 		</form>   
 	</body>
@@ -75,17 +83,20 @@ func startGithubOauth(w http.ResponseWriter, r *http.Request) {
 }
 
 func completeGithubOauth(w http.ResponseWriter, r *http.Request) {
+
 	// get params
 	code := r.FormValue("code")
 	state := r.FormValue("state")
 
 	if state != "0000" {
+		log.Println("status is incorrect")
 		http.Error(w, "state is incorrect", http.StatusBadRequest)
 		return
 	}
 
 	token, err := githubOauthConfig.Exchange(r.Context(), code)
 	if err != nil {
+		log.Println("Couldn't login")
 		http.Error(w, "Couldn't login", http.StatusInternalServerError)
 		return
 	}
@@ -95,4 +106,23 @@ func completeGithubOauth(w http.ResponseWriter, r *http.Request) {
 
 	// get http client, can now make calls to github on behalf of user
 	client := oauth2.NewClient(r.Context(), ts)
+
+	requestBody := strings.NewReader(`{"query": "query {viewer {id}}"}`)
+	resp, err := client.Post("https://api.github.com/graphql", "application/json", requestBody)
+	if err != nil {
+		log.Println("Couldn't get user")
+		http.Error(w, "Couldn't get user", http.StatusInternalServerError)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Couldn't read github information")
+		http.Error(w, "Couldn't read github information", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println(string(bs))
 }
