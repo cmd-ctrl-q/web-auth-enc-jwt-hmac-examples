@@ -150,10 +150,11 @@ func completeGithubOauth(w http.ResponseWriter, r *http.Request) {
 
 	githubID := gr.Data.Viewer.ID
 	// log in user
-	userID, ok := githubConnections[githubID]
+	_, ok := githubConnections[githubID] // userID, ok
 	if !ok {
 		// New User - create account
+		return
 	}
 
-	// user has account, log in user
+	// Login to account userID using JWT
 }
