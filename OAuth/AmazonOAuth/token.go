@@ -13,7 +13,7 @@ type customClaims struct {
 	SID string
 }
 
-var key = []byte("my secret key 007 james bond rule the world from my mom's basement")
+var key = []byte("1234567890abcdef")
 
 func createToken(sid string) (string, error) {
 

@@ -99,9 +99,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 		<!-- register -->
 		<form action="/register" method="post">
-			<label for="username">Username</label>
-			<input type="text" username="u" placeholder="Username">
-			<input type="email" username="e" placeholder="Username">
+			<label for="email">Email</label>
+			<input type="email" name="e" placeholder="Email">
+			<input type="text" name="u" placeholder="Username">
 			<input type="password" name="p">
 			<input type="submit">
 		</form>
@@ -109,8 +109,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 		<!-- regular login -->
 		<h3>Regular Login</h3>
 		<form action="/login" method="post">
-			<label for="username">Username</label>
-			<input type="email" username="e" placeholder="Username">
+			<label for="email">Email</label>
+			<input type="username" name="u" placeholder="Username">
+			<input type="email" name="e" placeholder="Email">
 			<input type="password" name="p">
 			<input type="submit">
 		</form>
@@ -139,21 +140,21 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 	e := r.FormValue("e")
 	if e == "" {
-		msg := url.QueryEscape("your email needs to not be empty")
+		msg := url.QueryEscape("your email cannot be empty")
 		http.Redirect(w, r, "/?msg="+msg, http.StatusSeeOther)
 		return
 	}
 
 	p := r.FormValue("p")
 	if p == "" {
-		msg := url.QueryEscape("your email password needs to not be empty")
+		msg := url.QueryEscape("your password cannot be empty")
 		http.Redirect(w, r, "/?msg="+msg, http.StatusSeeOther)
 		return
 	}
 
-	u := r.FormValue("username")
+	u := r.FormValue("u")
 	if u == "" {
-		msg := url.QueryEscape("your first name needs to not be empty")
+		msg := url.QueryEscape("your username cannot be empty")
 		http.Redirect(w, r, "/?msg="+msg, http.StatusSeeOther)
 		return
 	}
